@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Refugio Cero — Suministros de Supervivencia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Staatliches&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-void:#0c100e;
+    --bg-panel:#161c19;
+    --bg-panel-alt:#1c2420;
+    --toxic:#8fae3c;
+    --toxic-bright:#bcdb55;
+    --rust:#8a3a26;
+    --rust-bright:#cf5a34;
+    --bone:#d9d5c5;
+    --bone-dim:#9a9588;
+    --ash:#525a52;
+    --ash-dark:#2a302b;
+    --font-display:'Staatliches', sans-serif;
+    --font-body:'JetBrains Mono', monospace;
+  }
+
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--bg-void);
+    color:var(--bone);
+    font-family:var(--font-body);
+    min-height:100vh;
+    position:relative;
+  }
+
+  /* ---------- textura / grano ---------- */
+  .grain-overlay{
+    position:fixed; inset:0; z-index:999; pointer-events:none;
+    background:
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.025) 0px, rgba(255,255,255,0.025) 1px, transparent 1px, transparent 3px),
+      radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.55) 100%);
+    mix-blend-mode:overlay;
+  }
+
+  a, button{font-family:inherit;}
+  button{cursor:pointer;}
+  :focus-visible{outline:2px solid var(--toxic-bright); outline-offset:2px;}
+
+  ::-webkit-scrollbar{width:10px;}
+  ::-webkit-scrollbar-track{background:var(--bg-void);}
+  ::-webkit-scrollbar-thumb{background:var(--ash); border:2px solid var(--bg-void);}
+
+  /* ---------- HUD superior (elemento firma) ---------- */
+  .hud{
+    display:flex; flex-wrap:wrap; gap:1rem;
+    justify-content:space-between; align-items:center;
+    background:var(--bg-panel-alt);
+    border-bottom:2px dashed var(--ash);
+    padding:.5rem 1.25rem;
+    font-size:.7rem;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    color:var(--bone-dim);
+  }
+  .hud span.value{color:var(--bone);}
+  .hud-infeccion{display:flex; align-items:center; gap:.5rem;}
+  .infeccion-bar{
+    width:80px; height:6px; background:var(--ash-dark);
+    border:1px solid var(--ash); position:relative; overflow:hidden;
+  }
+  .infeccion-bar::after{
+    content:''; position:absolute; inset:0; width:67%;
+    background:var(--rust-bright);
+    animation:flicker 3.4s infinite steps(2,end);
+  }
+  @keyframes flicker{0%,82%,100%{opacity:1;} 83%,86%{opacity:.35;} 90%{opacity:.85;}}
+  .hud-chapas{display:flex; align-items:center; gap:.4rem; color:var(--toxic-bright); font-weight:600;}
+
+  /* ---------- cabecera / marca ---------- */
+  header.principal{
+    display:flex; justify-content:space-between; align-items:center;
+    flex-wrap:wrap; gap:1rem;
+    padding:1.5rem 1.5rem 1rem;
+    border-bottom:1px solid var(--ash-dark);
+  }
+  .marca h1{
+    font-family:var(--font-display);
+    font-size:2.6rem; letter-spacing:.06em;
+    margin:0; color:var(--bone);
+    text-shadow:2px 0 0 var(--rust), -2px 0 0 var(--toxic);
+  }
+  .marca p{margin:.15rem 0 0; font-size:.78rem; color:var(--bone-dim); letter-spacing:.05em;}
+
+  .btn-carrito{
+    position:relative;
+    display:flex; align-items:center; gap:.5rem;
+    background:var(--bg-panel); border:1px solid var(--ash);
+    color:var(--bone); padding:.65rem 1rem;
+    font-size:.75rem; letter-spacing:.08em; text-transform:uppercase;
+    transition:border-color .15s, transform .15s;
+  }
+  .btn-carrito:hover{border-color:var(--toxic-bright); transform:translateY(-2px);}
+  .badge{
+    position:absolute; top:-8px; right:-8px;
+    background:var(--rust-bright); color:#1b0d08;
+    font-weight:700; font-size:.68rem;
+    min-width:20px; height:20px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    border:1px solid var(--bg-void);
+  }
+
+  /* ---------- filtros ---------- */
+  .filtros{
+    display:flex; gap:.6rem; flex-wrap:wrap;
+    padding:1.25rem 1.5rem .25rem;
+  }
+  .filtro-btn{
+    background:transparent; border:1px solid var(--ash);
+    color:var(--bone-dim);
+    padding:.5rem 1rem;
+    font-size:.7rem; letter-spacing:.1em; text-transform:uppercase;
+    clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);
+    transition:all .15s;
+  }
+  .filtro-btn:hover{color:var(--bone); border-color:var(--bone-dim);}
+  .filtro-btn.activo{
+    background:var(--toxic); color:#10130b; border-color:var(--toxic);
+    font-weight:600;
+  }
+
+  /* ---------- galería ---------- */
+  main{padding:1.5rem; max-width:1280px; margin:0 auto;}
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(260px, 1fr));
+    gap:1.4rem;
+  }
+
+  .card{
+    background:var(--bg-panel);
+    border:1px solid var(--ash-dark);
+    padding:1.1rem;
+    display:flex; flex-direction:column; gap:.6rem;
+    position:relative;
+    clip-path:polygon(0 10px,10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%);
+    transition:transform .18s, box-shadow .18s;
+  }
+  .card:hover{transform:translateY(-5px);}
+  .card[data-cat="armas"]:hover{box-shadow:0 10px 24px -8px rgba(207,90,52,.35);}
+  .card[data-cat="curas"]:hover{box-shadow:0 10px 24px -8px rgba(143,174,60,.35);}
+  .card[data-cat="decoracion"]:hover{box-shadow:0 10px 24px -8px rgba(217,213,197,.18);}
+
+  .card-top{display:flex; justify-content:space-between; align-items:flex-start;}
+  .icono{
+    width:38px; height:38px; flex:none;
+    display:flex; align-items:center; justify-content:center;
+    border:1px solid var(--ash); background:var(--bg-panel-alt);
+    color:var(--bone);
+  }
+  .card[data-cat="armas"] .icono{color:var(--rust-bright);}
+  .card[data-cat="curas"] .icono{color:var(--toxic-bright);}
+
+  .rareza{
+    font-size:.62rem; letter-spacing:.1em; text-transform:uppercase;
+    padding:.2rem .55rem; font-weight:700;
+    clip-path:polygon(6px 0,100% 0,calc(100% - 6px) 100%,0 100%);
+  }
+  .rareza.comun{background:var(--ash); color:#0c100e;}
+  .rareza.raro{background:var(--toxic); color:#10130b;}
+  .rareza.epico{background:var(--rust-bright); color:#1b0d08;}
+  .rareza.legendario{background:var(--toxic-bright); color:#10130b; animation:pulso 1.8s infinite;}
+  @keyframes pulso{0%,100%{box-shadow:0 0 0 0 rgba(188,219,85,.5);} 50%{box-shadow:0 0 0 5px rgba(188,219,85,0);}}
+
+  .card h3{
+    font-family:var(--font-display); font-size:1.25rem;
+    margin:0; letter-spacing:.03em; line-height:1.15;
+  }
+  .meta-sub{font-size:.68rem; color:var(--bone-dim); text-transform:uppercase; letter-spacing:.08em; margin:-.3rem 0 0;}
+  .sku{font-size:.62rem; color:var(--ash); letter-spacing:.05em;}
+  .descripcion{font-size:.78rem; color:var(--bone-dim); line-height:1.4; margin:0;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;}
+
+  .stat-row{display:flex; justify-content:space-between; font-size:.65rem; letter-spacing:.08em; color:var(--bone-dim); text-transform:uppercase;}
+  .stat-bar{width:100%; height:6px; background:var(--ash-dark); border:1px solid var(--ash-dark);}
+  .stat-bar > div{height:100%;}
+  .card[data-cat="armas"] .stat-bar > div{background:var(--rust-bright);}
+  .card[data-cat="curas"] .stat-bar > div{background:var(--toxic-bright);}
+  .card[data-cat="decoracion"] .stat-bar > div{background:var(--bone-dim);}
+
+  .card-footer{
+    display:flex; justify-content:space-between; align-items:center;
+    margin-top:.3rem; padding-top:.7rem; border-top:1px dashed var(--ash-dark);
+  }
+  .precio{display:flex; align-items:center; gap:.35rem; font-weight:700; color:var(--toxic-bright); font-size:.95rem;}
+  .stock{font-size:.62rem; color:var(--bone-dim);}
+  .stock.bajo{color:var(--rust-bright);}
+
+  .add-btn{
+    margin-top:.4rem; width:100%;
+    background:var(--bg-panel-alt); border:1px solid var(--toxic);
+    color:var(--toxic-bright);
+    padding:.55rem 0; font-size:.72rem; letter-spacing:.1em; text-transform:uppercase;
+    font-weight:600;
+    transition:background .15s, color .15s;
+  }
+  .add-btn:hover{background:var(--toxic); color:#10130b;}
+  .add-btn:disabled{border-color:var(--ash); color:var(--ash); cursor:not-allowed;}
+  .add-btn:disabled:hover{background:var(--bg-panel-alt); color:var(--ash);}
+
+  .vacio{
+    grid-column:1/-1; text-align:center; padding:3rem 1rem;
+    color:var(--bone-dim); border:1px dashed var(--ash-dark);
+  }
+
+  /* ---------- carrito (drawer) ---------- */
+  .backdrop{
+    position:fixed; inset:0; background:rgba(6,8,7,.7);
+    opacity:0; pointer-events:none; transition:opacity .25s; z-index:1000;
+  }
+  .backdrop.visible{opacity:1; pointer-events:auto;}
+
+  .drawer{
+    position:fixed; top:0; right:0; height:100vh;
+    width:400px; max-width:92vw;
+    background:var(--bg-panel-alt);
+    border-left:3px solid var(--toxic);
+    transform:translateX(100%); transition:transform .3s ease;
+    z-index:1001; display:flex; flex-direction:column;
+    padding:1.4rem;
+  }
+  .drawer.open{transform:translateX(0);}
+  .drawer-head{display:flex; justify-content:space-between; align-items:center; border-bottom:1px dashed var(--ash); padding-bottom:.8rem; margin-bottom:.8rem;}
+  .drawer-head h2{font-family:var(--font-display); font-size:1.5rem; margin:0; letter-spacing:.05em;}
+  .cerrar-btn{background:none; border:1px solid var(--ash); color:var(--bone); width:30px; height:30px; line-height:1; font-size:1rem;}
+  .cerrar-btn:hover{border-color:var(--rust-bright); color:var(--rust-bright);}
+
+  #cart-items{flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:.7rem; margin-bottom:.8rem;}
+  .cart-vacio{color:var(--bone-dim); font-size:.8rem; text-align:center; margin-top:2rem; line-height:1.5;}
+
+  .cart-item{
+    display:flex; gap:.7rem; align-items:center;
+    background:var(--bg-panel); border:1px solid var(--ash-dark); padding:.6rem;
+  }
+  .cart-item .icono{width:30px; height:30px;}
+  .cart-info{flex:1; min-width:0;}
+  .cart-info h4{margin:0; font-size:.82rem; font-family:var(--font-display); letter-spacing:.02em;}
+  .cart-info .sub{font-size:.65rem; color:var(--bone-dim);}
+  .qty-ctrl{display:flex; align-items:center; gap:.4rem;}
+  .qty-ctrl button{
+    width:22px; height:22px; background:var(--bg-panel-alt); border:1px solid var(--ash);
+    color:var(--bone); font-size:.8rem; display:flex; align-items:center; justify-content:center; padding:0;
+  }
+  .qty-ctrl button:hover{border-color:var(--toxic-bright); color:var(--toxic-bright);}
+  .qty-ctrl span{font-size:.78rem; min-width:18px; text-align:center;}
+  .cart-item .subtotal{font-size:.78rem; font-weight:700; color:var(--toxic-bright); white-space:nowrap;}
+  .quitar-btn{background:none; border:none; color:var(--ash); font-size:.95rem; padding:0 .2rem;}
+  .quitar-btn:hover{color:var(--rust-bright);}
+
+  .drawer-footer{border-top:1px dashed var(--ash); padding-top:.9rem;}
+  .total-row{display:flex; justify-content:space-between; align-items:center; font-size:.95rem; margin-bottom:.8rem;}
+  .total-row .num{font-family:var(--font-display); font-size:1.5rem; color:var(--toxic-bright);}
+  .checkout-btn{
+    width:100%; background:var(--toxic); color:#10130b; border:none;
+    padding:.75rem; font-size:.8rem; letter-spacing:.1em; text-transform:uppercase; font-weight:700;
+  }
+  .checkout-btn:hover{background:var(--toxic-bright);}
+  .checkout-btn:disabled{background:var(--ash); color:var(--bg-void); cursor:not-allowed;}
+  .vaciar-btn{
+    width:100%; margin-top:.5rem; background:none; border:1px solid var(--ash); color:var(--bone-dim);
+    padding:.55rem; font-size:.68rem; letter-spacing:.08em; text-transform:uppercase;
+  }
+  .vaciar-btn:hover{border-color:var(--rust-bright); color:var(--rust-bright);}
+
+  /* ---------- toasts ---------- */
+  .toast-zone{
+    position:fixed; bottom:1.2rem; left:50%; transform:translateX(-50%);
+    display:flex; flex-direction:column; gap:.5rem; z-index:1200; align-items:center;
+  }
+  .toast{
+    background:var(--bg-panel-alt); border:1px solid var(--toxic);
+    color:var(--bone); padding:.6rem 1.1rem; font-size:.74rem; letter-spacing:.04em;
+    opacity:0; transform:translateY(10px); transition:opacity .25s, transform .25s;
+    clip-path:polygon(8px 0,100% 0,100% 100%,0 100%,0 8px);
+  }
+  .toast.mostrar{opacity:1; transform:translateY(0);}
+
+  footer.pie{
+    text-align:center; padding:2rem 1rem 1.5rem; color:var(--ash); font-size:.68rem;
+    letter-spacing:.05em; border-top:1px solid var(--ash-dark); margin-top:1rem;
+  }
+
+  @media (max-width:640px){
+    .marca h1{font-size:2rem;}
+    .drawer{width:100%;}
+    .hud{font-size:.62rem;}
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation:none !important; transition:none !important;}
+  }
+</style>
+</head>
+<body>
+
+<div class="grain-overlay" aria-hidden="true"></div>
+
+<div class="hud">
+  <span>📡 Día <span class="value">247</span> — post-colapso</span>
+  <div class="hud-infeccion">
+    <span>Nivel de infección</span>
+    <div class="infeccion-bar"></div>
+  </div>
+  <div class="hud-chapas">
+    <svg width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6" fill="none"/><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.2" fill="none"/></svg>
+    <span id="hud-chapas">0</span> chapas en mochila
+  </div>
+</div>
+
+<header class="principal">
+  <div class="marca">
+    <h1>REFUGIO CERO</h1>
+    <p>Suministros para los que aún respiran.</p>
+  </div>
+  <button class="btn-carrito" id="abrir-carrito" aria-haspopup="dialog">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 7h16l-1.5 12.5a2 2 0 0 1-2 1.5H7.5a2 2 0 0 1-2-1.5L4 7Z"/><path d="M8 7V5a4 4 0 0 1 8 0v2"/></svg>
+    Inventario
+    <span class="badge" id="badge-carrito">0</span>
+  </button>
+</header>
+
+<nav class="filtros" id="filtros" aria-label="Filtrar productos por categoría">
+  <button class="filtro-btn activo" data-filtro="todos">Todos</button>
+  <button class="filtro-btn" data-filtro="armas">Armas</button>
+  <button class="filtro-btn" data-filtro="curas">Curas / Antídotos</button>
+  <button class="filtro-btn" data-filtro="decoracion">Decoración</button>
+</nav>
+
+<main>
+  <div class="grid" id="grid"></div>
+</main>
+
+<footer class="pie">
+  REFUGIO CERO — proyecto académico de e-commerce asistido por IA. Simulación sin transacciones reales. Sobrevive con estilo.
+</footer>
+
+<div class="backdrop" id="backdrop"></div>
+<aside class="drawer" id="drawer" role="dialog" aria-label="Carrito de compras" aria-modal="true">
+  <div class="drawer-head">
+    <h2>Inventario</h2>
+    <button class="cerrar-btn" id="cerrar-carrito" aria-label="Cerrar carrito">✕</button>
+  </div>
+  <div id="cart-items"></div>
+  <div class="drawer-footer">
+    <div class="total-row">
+      <span>Total a pagar</span>
+      <span class="num"><span id="cart-total">0</span> 🪙</span>
+    </div>
+    <button class="checkout-btn" id="finalizar-btn">Canjear suministros</button>
+    <button class="vaciar-btn" id="vaciar-btn">Vaciar inventario</button>
+  </div>
+</aside>
+
+<div class="toast-zone" id="toast-zone" aria-live="polite"></div>
+
+<script>
+  // ---------- Modelo de datos (basado en el registro de productos de la Fase 1) ----------
+  const productos = [
+    {id:'ARM-0001', nombre:'Machete Dentado "Mordida Fría"', categoria:'armas', subcategoria:'Cuerpo a cuerpo', descripcion:'Hoja dentada forjada con resortes de auto. Corte limpio incluso con el filo gastado.', precio:180, stock:4, rareza:'raro', efectividad:7},
+    {id:'ARM-0002', nombre:'Ballesta Improvisada "Silencio"', categoria:'armas', subcategoria:'A distancia', descripcion:'Tubería de PVC y cuerdas de tendón. Sin disparo audible a más de diez metros.', precio:340, stock:2, rareza:'epico', efectividad:8},
+    {id:'ARM-0003', nombre:'Bate Claveteado "Remate"', categoria:'armas', subcategoria:'Cuerpo a cuerpo', descripcion:'Madera de fresno reforzada con clavos oxidados. El clásico que nunca falla.', precio:90, stock:9, rareza:'comun', efectividad:5},
+    {id:'ARM-0004', nombre:'Lanzallamas Casero "Purga"', categoria:'armas', subcategoria:'Artesanal', descripcion:'Tanque de gas y boquilla de soldador. Despeja un pasillo entero en segundos.', precio:720, stock:1, rareza:'legendario', efectividad:10},
+    {id:'ARM-0005', nombre:'Rifle de Clavos "Perno"', categoria:'armas', subcategoria:'A distancia', descripcion:'Compresor de aire modificado. Perfora cráneos blandos a media distancia.', precio:260, stock:3, rareza:'raro', efectividad:6},
+
+    {id:'CUR-0001', nombre:'Antídoto Cepa-Z "Amanecer"', categoria:'curas', subcategoria:'Antiviral', descripcion:'Frasco sellado de laboratorio militar. Frena el avance de una mordida reciente.', precio:410, stock:2, rareza:'epico', efectividad:9},
+    {id:'CUR-0002', nombre:'Vendas Hervidas "Emergencia"', categoria:'curas', subcategoria:'Primeros auxilios', descripcion:'Tela esterilizada al fuego. Básico, pero evita que te desangres en el camino.', precio:35, stock:20, rareza:'comun', efectividad:4},
+    {id:'CUR-0003', nombre:'Suero Antiinflamatorio "Calma"', categoria:'curas', subcategoria:'Antiviral', descripcion:'Reduce la fiebre y la hinchazón tras un ataque. No cura, pero da tiempo.', precio:150, stock:6, rareza:'raro', efectividad:6},
+    {id:'CUR-0004', nombre:'Tónico de Raíces "Resistencia"', categoria:'curas', subcategoria:'Preventivo', descripcion:'Mezcla herbal fortificante. Sube las defensas antes de salir a explorar.', precio:60, stock:15, rareza:'comun', efectividad:3},
+
+    {id:'DEC-0001', nombre:'Barricada Modular "Muralla"', categoria:'decoracion', subcategoria:'Mobiliario', descripcion:'Paneles de chapa y madera ensamblables. Sella puertas y ventanas en minutos.', precio:220, stock:5, rareza:'raro', efectividad:7},
+    {id:'DEC-0002', nombre:'Lámpara de Aceite "Faro"', categoria:'decoracion', subcategoria:'Iluminación', descripcion:'Luz cálida y silenciosa, sin generador que atraiga curiosos.', precio:45, stock:12, rareza:'comun', efectividad:3},
+    {id:'DEC-0003', nombre:'Trampa de Campanas "Alarma"', categoria:'decoracion', subcategoria:'Seguridad', descripcion:'Hilo de pesca y campanas oxidadas. Nadie entra sin que lo sepas.', precio:300, stock:3, rareza:'epico', efectividad:8},
+  ];
+
+  const ETIQUETA_NIVEL = {armas:'Efectividad', curas:'Potencia', decoracion:'Resistencia'};
+  const ETIQUETA_RAREZA = {comun:'Común', raro:'Raro', epico:'Épico', legendario:'Legendario'};
+
+  const ICONOS = {
+    armas:`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21 12.5 11.5 M10.5 8 16 2.5 20 6.5 14.5 12 M12.5 11.5 15 14"/></svg>`,
+    curas:`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2h5 M10 2v5.2L6.3 16a3 3 0 0 0 2.8 4.2h6a3 3 0 0 0 2.8-4.2L14 7.2V2"/><path d="M8.5 14h7"/></svg>`,
+    decoracion:`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11 12 4 20 11 M6.5 10v10h11V10"/></svg>`
+  };
+  const ICONO_MONEDA = `<svg width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6" fill="none"/><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.2" fill="none"/></svg>`;
+
+  // ---------- Estado del carrito (en memoria) ----------
+  let carrito = []; // {id, cantidad}
+
+  const grid = document.getElementById('grid');
+  const badgeCarrito = document.getElementById('badge-carrito');
+  const hudChapas = document.getElementById('hud-chapas');
+  const cartItemsEl = document.getElementById('cart-items');
+  const cartTotalEl = document.getElementById('cart-total');
+  const drawer = document.getElementById('drawer');
+  const backdrop = document.getElementById('backdrop');
+  const toastZone = document.getElementById('toast-zone');
+
+  function buscarProducto(id){ return productos.find(p => p.id === id); }
+
+  function tarjetaHTML(p){
+    const enCarrito = carrito.find(c => c.id === p.id);
+    const cantidadEnCarrito = enCarrito ? enCarrito.cantidad : 0;
+    const sinStock = cantidadEnCarrito >= p.stock;
+    return `
+      <article class="card" data-cat="${p.categoria}">
+        <div class="card-top">
+          <div class="icono">${ICONOS[p.categoria]}</div>
+          <span class="rareza ${p.rareza}">${ETIQUETA_RAREZA[p.rareza]}</span>
+        </div>
+        <div>
+          <h3>${p.nombre}</h3>
+          <p class="meta-sub">${p.subcategoria}</p>
+          <p class="sku">SKU: ${p.id}</p>
+        </div>
+        <p class="descripcion">${p.descripcion}</p>
+        <div>
+          <div class="stat-row"><span>${ETIQUETA_NIVEL[p.categoria]}</span><span>${p.efectividad}/10</span></div>
+          <div class="stat-bar"><div style="width:${p.efectividad * 10}%"></div></div>
+        </div>
+        <div class="card-footer">
+          <span class="precio">${ICONO_MONEDA} ${p.precio}</span>
+          <span class="stock ${p.stock - cantidadEnCarrito <= 2 ? 'bajo' : ''}">Stock: ${p.stock - cantidadEnCarrito}</span>
+        </div>
+        <button class="add-btn" data-id="${p.id}" ${sinStock ? 'disabled' : ''}>
+          ${sinStock ? 'Sin existencias' : 'Añadir al inventario'}
+        </button>
+      </article>`;
+  }
+
+  function renderGaleria(filtro = 'todos'){
+    const lista = filtro === 'todos' ? productos : productos.filter(p => p.categoria === filtro);
+    grid.innerHTML = lista.length
+      ? lista.map(tarjetaHTML).join('')
+      : `<div class="vacio">No hay suministros en esta categoría por ahora. Vuelve a revisar el refugio más tarde.</div>`;
+  }
+
+  // ---------- Filtros ----------
+  document.getElementById('filtros').addEventListener('click', e => {
+    const btn = e.target.closest('.filtro-btn');
+    if (!btn) return;
+    document.querySelectorAll('.filtro-btn').forEach(b => b.classList.remove('activo'));
+    btn.classList.add('activo');
+    renderGaleria(btn.dataset.filtro);
+  });
+
+  // ---------- Añadir al carrito (delegación de eventos) ----------
+  grid.addEventListener('click', e => {
+    const btn = e.target.closest('.add-btn');
+    if (!btn || btn.disabled) return;
+    agregarAlCarrito(btn.dataset.id);
+  });
+
+  function agregarAlCarrito(id){
+    const producto = buscarProducto(id);
+    if (!producto) return;
+    const item = carrito.find(c => c.id === id);
+    const cantidadActual = item ? item.cantidad : 0;
+    if (cantidadActual >= producto.stock){
+      mostrarToast(`No quedan más unidades de "${producto.nombre}".`);
+      return;
+    }
+    if (item) item.cantidad++;
+    else carrito.push({id, cantidad:1});
+
+    mostrarToast(`+1 ${producto.nombre} añadido al inventario.`);
+    const filtroActivo = document.querySelector('.filtro-btn.activo').dataset.filtro;
+    renderGaleria(filtroActivo);
+    renderCarrito();
+  }
+
+  function cambiarCantidad(id, delta){
+    const item = carrito.find(c => c.id === id);
+    if (!item) return;
+    const producto = buscarProducto(id);
+    item.cantidad += delta;
+    if (item.cantidad <= 0){
+      carrito = carrito.filter(c => c.id !== id);
+    } else if (item.cantidad > producto.stock){
+      item.cantidad = producto.stock;
+    }
+    const filtroActivo = document.querySelector('.filtro-btn.activo').dataset.filtro;
+    renderGaleria(filtroActivo);
+    renderCarrito();
+  }
+
+  function quitarDelCarrito(id){
+    carrito = carrito.filter(c => c.id !== id);
+    const filtroActivo = document.querySelector('.filtro-btn.activo').dataset.filtro;
+    renderGaleria(filtroActivo);
+    renderCarrito();
+  }
+
+  function renderCarrito(){
+    const totalUnidades = carrito.reduce((sum, c) => sum + c.cantidad, 0);
+    const totalChapas = carrito.reduce((sum, c) => {
+      const p = buscarProducto(c.id);
+      return sum + (p ? p.precio * c.cantidad : 0);
+    }, 0);
+
+    badgeCarrito.textContent = totalUnidades;
+    hudChapas.textContent = totalChapas;
+    cartTotalEl.textContent = totalChapas;
+    document.getElementById('finalizar-btn').disabled = carrito.length === 0;
+
+    if (carrito.length === 0){
+      cartItemsEl.innerHTML = `<p class="cart-vacio">Tu mochila está vacía.<br>Añade armas, curas o decoración para equiparte.</p>`;
+      return;
+    }
+
+    cartItemsEl.innerHTML = carrito.map(c => {
+      const p = buscarProducto(c.id);
+      const subtotal = p.precio * c.cantidad;
+      return `
+        <div class="cart-item">
+          <div class="icono">${ICONOS[p.categoria]}</div>
+          <div class="cart-info">
+            <h4>${p.nombre}</h4>
+            <span class="sub">${p.precio} 🪙 c/u</span>
+            <div class="qty-ctrl">
+              <button data-accion="restar" data-id="${p.id}" aria-label="Quitar una unidad">−</button>
+              <span>${c.cantidad}</span>
+              <button data-accion="sumar" data-id="${p.id}" aria-label="Añadir una unidad">+</button>
+            </div>
+          </div>
+          <span class="subtotal">${subtotal} 🪙</span>
+          <button class="quitar-btn" data-accion="quitar" data-id="${p.id}" aria-label="Eliminar del carrito">✕</button>
+        </div>`;
+    }).join('');
+  }
+
+  cartItemsEl.addEventListener('click', e => {
+    const btn = e.target.closest('button[data-accion]');
+    if (!btn) return;
+    const { accion, id } = btn.dataset;
+    if (accion === 'sumar') cambiarCantidad(id, 1);
+    if (accion === 'restar') cambiarCantidad(id, -1);
+    if (accion === 'quitar') quitarDelCarrito(id);
+  });
+
+  // ---------- Drawer del carrito ----------
+  function abrirDrawer(){
+    drawer.classList.add('open');
+    backdrop.classList.add('visible');
+  }
+  function cerrarDrawer(){
+    drawer.classList.remove('open');
+    backdrop.classList.remove('visible');
+  }
+  document.getElementById('abrir-carrito').addEventListener('click', abrirDrawer);
+  document.getElementById('cerrar-carrito').addEventListener('click', cerrarDrawer);
+  backdrop.addEventListener('click', cerrarDrawer);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarDrawer(); });
+
+  // ---------- Vaciar / Finalizar ----------
+  document.getElementById('vaciar-btn').addEventListener('click', () => {
+    if (carrito.length === 0) return;
+    carrito = [];
+    const filtroActivo = document.querySelector('.filtro-btn.activo').dataset.filtro;
+    renderGaleria(filtroActivo);
+    renderCarrito();
+    mostrarToast('Inventario vaciado.');
+  });
+
+  document.getElementById('finalizar-btn').addEventListener('click', () => {
+    if (carrito.length === 0) return;
+    const total = cartTotalEl.textContent;
+    mostrarToast(`Suministros reservados por ${total} chapas. Buena suerte ahí fuera.`);
+    carrito = [];
+    const filtroActivo = document.querySelector('.filtro-btn.activo').dataset.filtro;
+    renderGaleria(filtroActivo);
+    renderCarrito();
+    setTimeout(cerrarDrawer, 1400);
+  });
+
+  // ---------- Toasts ----------
+  function mostrarToast(mensaje){
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.textContent = mensaje;
+    toastZone.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add('mostrar'));
+    setTimeout(() => {
+      toast.classList.remove('mostrar');
+      setTimeout(() => toast.remove(), 300);
+    }, 2600);
+  }
+
+  // ---------- Inicio ----------
+  renderGaleria('todos');
+  renderCarrito();
+</script>
+</body>
+</html>
